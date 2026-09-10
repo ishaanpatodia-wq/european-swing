@@ -1,14 +1,19 @@
 function revealHtml(){
   const rows=S.revealed||[];
   const by=Object.fromEntries(rows.map(x=>[(x.player_name||'').toLowerCase(),x]));
-  const valueOf=name=>S.rank.find(x=>x.name===name)?.points||0;
+  const norm=name=>String(name||'').trim().toLowerCase();
+  const rankMeta=new Map(S.rank.map((p,i)=>[norm(p.name),{points:Number(p.points)||0,index:i}]));
   return `<div class="reveal">${['ishaan','nihal','sarhan'].map(u=>{
     const t=by[u];
     if(!t)return `<div class="team"><h3>${u}</h3><div class="notice">No submission</div></div>`;
-    const all=[...(t.picks||[]),...(t.extra_player?[t.extra_player]:[])].sort((a,b)=>valueOf(b)-valueOf(a)||a.localeCompare(b));
+    const all=[...(t.picks||[]),...(t.extra_player?[t.extra_player]:[])].sort((a,b)=>{
+      const A=rankMeta.get(norm(a))||{points:-1,index:9999};
+      const B=rankMeta.get(norm(b))||{points:-1,index:9999};
+      return B.points-A.points||A.index-B.index||a.localeCompare(b);
+    });
     return `<div class="team"><h3>${u}</h3><ol>${all.map(n=>{
-      const p=S.rank.find(x=>x.name===n);
-      return `<li>${esc(n)} <b>${p?.points??''}</b>${t.extra_player===n?' <span class="tag">AND</span>':''}${t.double_player===n?' <span class="tag">2×</span>':''}${t.cut_player===n?' <span class="tag">CUT</span>':''}</li>`;
+      const meta=rankMeta.get(norm(n));
+      return `<li>${esc(n)} <b>${meta?.points??''}</b>${t.extra_player===n?' <span class="tag">AND</span>':''}${t.double_player===n?' <span class="tag">2×</span>':''}${t.cut_player===n?' <span class="tag">CUT</span>':''}</li>`;
     }).join('')}</ol></div>`;
   }).join('')}</div>`;
 }
