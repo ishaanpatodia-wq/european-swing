@@ -1,0 +1,13 @@
+.team li,
+.team li.dup,
+.team li.unique {
+  font-family: "Inter Tight", Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.team li b {
+  font-family: inherit;
+  font-weight: 800;
+  color: inherit;
+}
