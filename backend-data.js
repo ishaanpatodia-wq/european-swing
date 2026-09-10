@@ -1,4 +1,5 @@
 S.standings=[];
+S.autoEventChosen=false;
 
 async function loadBackendEvents(){
   if(!TOKEN)return;
@@ -13,6 +14,12 @@ async function loadBackendEvents(){
     e.reveal=row.reveal_at||null;
     e.cutTarget=row.cut_deadline||null;
     e.pickTarget=row.reveal_at?new Date(new Date(row.reveal_at).getTime()-2*60*60*1000).toISOString():null;
+  }
+
+  if(!S.autoEventChosen){
+    const upcoming=EVENTS.filter(x=>x.reveal&&new Date(x.reveal).getTime()>Date.now()).sort((a,b)=>new Date(a.reveal)-new Date(b.reveal))[0];
+    if(upcoming)S.event=upcoming.id;
+    S.autoEventChosen=true;
   }
 }
 
