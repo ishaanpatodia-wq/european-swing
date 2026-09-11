@@ -88,9 +88,9 @@
 
   function teamTable(model){
     return `<section class="live-team">
-      <div class="live-team-head"><h3>${esc(model.player)}</h3><span>${model.total===null?'—':fmtPts(model.total)} LIVE PTS</span></div>
+      <div class="live-team-head"><h3>${esc(model.player)}</h3><span>${model.total===null?'—':fmtPts(model.total)} pts</span></div>
       <div class="live-table-wrap"><table class="live-table team-table">
-        <thead><tr><th>Player</th><th>Score</th><th>Pos</th><th>Live pts</th></tr></thead>
+        <thead><tr><th>Player</th><th>Score</th><th>Pos</th><th>Pts</th></tr></thead>
         <tbody>${model.rows.map(r=>`<tr>
           <td><span class="live-player-name">${esc(r.name)}</span>${tags(r)}</td>
           <td>${esc(r.live?.score||'—')}</td>
@@ -112,17 +112,18 @@
     });
     const when=S.liveLeaderboard?.updatedAt?new Date(S.liveLeaderboard.updatedAt).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}):null;
     const cut=S.liveLeaderboard?.projectedCut;
-    const cutText=cut&&cut!=='—'?` · cut estimate ${cut}`:'';
-    const status=S.liveLeaderboard?.loading?'Updating live scores…':S.liveLeaderboard?.error?'Live feed temporarily unavailable':`Live / projected points${cutText}${when?' · updated '+when+' IST':''}`;
+    const meta=S.liveLeaderboard?.loading?'Updating…':S.liveLeaderboard?.error?'Scores unavailable':[
+      cut&&cut!=='—'?`Cut ${cut}`:null,
+      when
+    ].filter(Boolean).join(' · ');
     return `<div class="live-board">
-      <div class="live-status"><span class="live-dot"></span><span>${esc(status)}</span></div>
+      ${meta?`<div class="live-status"><span>${esc(meta)}</span></div>`:''}
       <section class="live-league">
-        <div class="live-league-title">Live League</div>
-        <table class="live-table league-table"><thead><tr><th>Rank</th><th>Player</th><th>Live pts</th></tr></thead>
+        <div class="live-league-title">Projected standings</div>
+        <table class="live-table league-table"><thead><tr><th>Rank</th><th>Player</th><th>Pts</th></tr></thead>
         <tbody>${ordered.map((m,i)=>`<tr><td>${i+1}</td><td>${esc(m.player)}</td><td class="live-points">${m.total===null?'—':fmtPts(m.total)}</td></tr>`).join('')}</tbody></table>
       </section>
       <div class="live-teams">${models.map(teamTable).join('')}</div>
-      <div class="live-note">Players below the live cut estimate are shown as -3. Final league scores are only locked after the event finishes.</div>
     </div>`;
   }
 
