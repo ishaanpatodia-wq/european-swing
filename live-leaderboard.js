@@ -25,7 +25,6 @@
 
   function belowProjectedCut(p){
     if(!p)return false;
-    if(Number(S.liveLeaderboard?.round)!==2)return false;
     const cut=Number(S.liveLeaderboard?.projectedCutScore);
     const score=Number(p.scoreNumber);
     return Number.isFinite(cut)&&Number.isFinite(score)&&score>cut;
@@ -113,7 +112,7 @@
     });
     const when=S.liveLeaderboard?.updatedAt?new Date(S.liveLeaderboard.updatedAt).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}):null;
     const cut=S.liveLeaderboard?.projectedCut;
-    const cutText=Number(S.liveLeaderboard?.round)===2&&cut&&cut!=='—'?` · projected cut ${cut}`:'';
+    const cutText=cut&&cut!=='—'?` · cut estimate ${cut}`:'';
     const status=S.liveLeaderboard?.loading?'Updating live scores…':S.liveLeaderboard?.error?'Live feed temporarily unavailable':`Live / projected points${cutText}${when?' · updated '+when+' IST':''}`;
     return `<div class="live-board">
       <div class="live-status"><span class="live-dot"></span><span>${esc(status)}</span></div>
@@ -123,7 +122,7 @@
         <tbody>${ordered.map((m,i)=>`<tr><td>${i+1}</td><td>${esc(m.player)}</td><td class="live-points">${m.total===null?'—':fmtPts(m.total)}</td></tr>`).join('')}</tbody></table>
       </section>
       <div class="live-teams">${models.map(teamTable).join('')}</div>
-      <div class="live-note">During Round 2, players below the projected cut line are shown as -3. Final league scores are only locked after the event finishes.</div>
+      <div class="live-note">Players below the live cut estimate are shown as -3. Final league scores are only locked after the event finishes.</div>
     </div>`;
   }
 
