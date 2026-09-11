@@ -23,8 +23,14 @@
     return candidates.length===1?candidates[0]:null;
   }
 
-  function belowProjectedCut(p){
+  function isWithdrawn(p){
     if(!p)return false;
+    if(p.withdrawn)return true;
+    return /^(wd|w\/d|withdrawn|ret|retired|retire|rt)$/i.test(String(p.status||p.position||'').trim());
+  }
+
+  function belowProjectedCut(p){
+    if(!p||isWithdrawn(p))return false;
     const cut=Number(S.liveLeaderboard?.projectedCutScore);
     const score=Number(p.scoreNumber);
     return Number.isFinite(cut)&&Number.isFinite(score)&&score>cut;
@@ -32,7 +38,7 @@
 
   function projectedPoints(p){
     if(!p)return null;
-    if(p.cut||belowProjectedCut(p))return -3;
+    if(isWithdrawn(p)||p.cut||belowProjectedCut(p))return -3;
     let pos=Number(p.positionNumber);
     if(!Number.isFinite(pos)||pos<=0){
       const m=String(p.position||'').match(/\d+/);
@@ -60,11 +66,12 @@
       const isCut=same(t?.cut_player,name);
       const isDouble=same(t?.double_player,name);
       const isAnd=same(t?.extra_player,name);
+      const withdrawn=isWithdrawn(live);
       let effective=base;
       if(isCut)effective=0;
       else if(isDouble&&Number.isFinite(effective))effective*=2;
       if(Number.isFinite(effective))effective*=multiplier;
-      return {name,live,base,effective,isCut,isDouble,isAnd,projectedOut:belowProjectedCut(live)};
+      return {name,live,base,effective,isCut,isDouble,isAnd,withdrawn,projectedOut:belowProjectedCut(live)};
     }).sort((a,b)=>{
       const ap=Number.isFinite(a.effective)?a.effective:-999;
       const bp=Number.isFinite(b.effective)?b.effective:-999;
@@ -80,6 +87,7 @@
 
   function tags(r){
     const out=[];
+    if(r.withdrawn)out.push('<span class="tag">WD</span>');
     if(r.isAnd)out.push('<span class="tag">AND</span>');
     if(r.isDouble)out.push('<span class="tag">2×</span>');
     if(r.isCut)out.push('<span class="tag">CUT</span>');
@@ -94,7 +102,7 @@
         <tbody>${model.rows.map(r=>`<tr>
           <td><span class="live-player-name">${esc(r.name)}</span>${tags(r)}</td>
           <td>${esc(r.live?.score||'—')}</td>
-          <td>${esc(r.live?.position||'—')}</td>
+          <td>${r.withdrawn?'—':esc(r.live?.position||'—')}</td>
           <td class="live-points">${fmtPts(r.effective)}</td>
         </tr>`).join('')}</tbody>
       </table></div>
