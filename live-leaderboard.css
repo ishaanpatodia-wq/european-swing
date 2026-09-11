@@ -1,0 +1,41 @@
+.live-board{display:grid;gap:12px}
+.live-status{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.02em}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--aqua);box-shadow:0 0 0 3px rgba(0,215,170,.12);flex:0 0 auto}
+.live-league,.live-team{border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#fff}
+.live-league-title{padding:10px 11px;background:linear-gradient(90deg,var(--navy),var(--navy2));color:#fff;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.live-teams{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.live-team-head{min-height:43px;padding:10px 11px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(90deg,var(--navy),var(--navy2));color:#fff}
+.live-team-head h3{margin:0;text-transform:capitalize;font-size:14px;letter-spacing:-.01em}
+.live-team-head span{font-size:10px;font-weight:800;letter-spacing:.06em;white-space:nowrap;color:var(--white)}
+.live-table-wrap{width:100%;overflow-x:auto}
+.live-table{width:100%;border-collapse:collapse;table-layout:fixed;background:#fff;color:var(--ink)}
+.live-table th{padding:7px 8px;background:#f3f5ff;color:#5d6480;font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.live-table td{padding:9px 8px;border-bottom:1px solid #eef0f5;font-size:11px;font-weight:600;text-align:right;vertical-align:middle;color:var(--ink)}
+.live-table tbody tr:last-child td{border-bottom:0}
+.live-table th:first-child,.live-table td:first-child{text-align:left}
+.team-table th:first-child,.team-table td:first-child{width:49%}
+.team-table th:nth-child(2),.team-table td:nth-child(2){width:17%}
+.team-table th:nth-child(3),.team-table td:nth-child(3){width:15%}
+.team-table th:nth-child(4),.team-table td:nth-child(4){width:19%}
+.live-player-name{font-weight:600;color:var(--ink)}
+.live-points{font-weight:800!important;color:var(--ink)!important}
+.live-tags{display:inline-flex;gap:3px;margin-left:4px;vertical-align:middle}
+.live-tags .tag{font-size:8px;padding:1px 4px}
+.league-table th:first-child,.league-table td:first-child{width:18%}
+.league-table th:nth-child(2),.league-table td:nth-child(2){width:55%}
+.league-table th:nth-child(3),.league-table td:nth-child(3){width:27%}
+.league-table td{font-size:12px}
+.league-table td:nth-child(2){font-weight:700;text-transform:capitalize}
+.live-note{font-size:10px;line-height:1.4;color:var(--muted);padding:0 2px}
+@media(max-width:880px){.live-teams{grid-template-columns:1fr}}
+@media(max-width:580px){
+  .live-board{gap:10px}
+  .live-team-head{min-height:40px;padding:9px 10px}
+  .live-table th{padding:6px 6px;font-size:8px}
+  .live-table td{padding:8px 6px;font-size:10px}
+  .team-table th:first-child,.team-table td:first-child{width:48%}
+  .team-table th:nth-child(2),.team-table td:nth-child(2){width:17%}
+  .team-table th:nth-child(3),.team-table td:nth-child(3){width:15%}
+  .team-table th:nth-child(4),.team-table td:nth-child(4){width:20%}
+  .live-player-name{line-height:1.2;display:inline-block}
+}
