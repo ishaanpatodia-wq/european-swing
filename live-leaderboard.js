@@ -30,18 +30,16 @@
   }
 
   function belowProjectedCut(p){
-    if(!p||isWithdrawn(p))return false;
+    if(!p||isWithdrawn(p)||S.liveLeaderboard?.cutFinal)return false;
     const cut=Number(S.liveLeaderboard?.projectedCutScore);
     const score=Number(p.scoreNumber);
     return Number.isFinite(cut)&&Number.isFinite(score)&&score>cut;
   }
 
-  function projectedPoints(p){
-    if(!p)return null;
-    if(isWithdrawn(p)||p.cut||belowProjectedCut(p))return -3;
-    let pos=Number(p.positionNumber);
+  function positionPoints(p){
+    let pos=Number(p?.positionNumber);
     if(!Number.isFinite(pos)||pos<=0){
-      const m=String(p.position||'').match(/\d+/);
+      const m=String(p?.position||'').match(/\d+/);
       pos=m?Number(m[0]):NaN;
     }
     if(!Number.isFinite(pos))return null;
@@ -52,6 +50,20 @@
     if(pos<=10)return 7;
     if(pos<=25)return 5;
     return 1;
+  }
+
+  function projectedPoints(p){
+    if(!p)return null;
+    if(isWithdrawn(p))return -3;
+
+    if(S.liveLeaderboard?.cutFinal){
+      if(p.missedCut||/^(mc|cut|dq)$/i.test(String(p.status||'').trim()))return -3;
+      const pts=positionPoints(p);
+      return pts===null&&p.madeCut?1:pts;
+    }
+
+    if(p.cut||belowProjectedCut(p))return -3;
+    return positionPoints(p);
   }
 
   const same=(a,b)=>norm(a)===norm(b);
@@ -102,7 +114,7 @@
         <tbody>${model.rows.map(r=>`<tr>
           <td><span class="live-player-name">${esc(r.name)}</span>${tags(r)}</td>
           <td>${esc(r.live?.score||'—')}</td>
-          <td>${r.withdrawn?'—':esc(r.live?.position||'—')}</td>
+          <td>${r.withdrawn||r.live?.missedCut?'':esc(r.live?.position||'—')}</td>
           <td class="live-points">${fmtPts(r.effective)}</td>
         </tr>`).join('')}</tbody>
       </table></div>
@@ -121,7 +133,7 @@
     const when=S.liveLeaderboard?.updatedAt?new Date(S.liveLeaderboard.updatedAt).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}):null;
     const cut=S.liveLeaderboard?.projectedCut;
     const meta=S.liveLeaderboard?.loading?'Updating…':S.liveLeaderboard?.error?'Scores unavailable':[
-      cut&&cut!=='—'?`Cut ${cut}`:null,
+      cut&&cut!=='—'?`${S.liveLeaderboard?.cutFinal?'Cut':'Projected cut'} ${cut}`:null,
       when
     ].filter(Boolean).join(' · ');
     return `<div class="live-board">
@@ -170,6 +182,7 @@
         projectedCutScore:data.projectedCutScore,
         projectedCut:data.projectedCut||null,
         projectedCutMethod:data.projectedCutMethod||null,
+        cutFinal:data.cutFinal===true,
         loading:false,
         error:data.error||null
       };
