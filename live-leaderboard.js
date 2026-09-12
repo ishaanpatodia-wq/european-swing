@@ -30,7 +30,7 @@
   }
 
   function belowProjectedCut(p){
-    if(!p||isWithdrawn(p)||S.liveLeaderboard?.cutFinal)return false;
+    if(!p||isWithdrawn(p)||p.madeCut||S.liveLeaderboard?.cutFinal)return false;
     const cut=Number(S.liveLeaderboard?.projectedCutScore);
     const score=Number(p.scoreNumber);
     return Number.isFinite(cut)&&Number.isFinite(score)&&score>cut;
@@ -55,11 +55,18 @@
   function projectedPoints(p){
     if(!p)return null;
     if(isWithdrawn(p))return -3;
+    if(p.missedCut||/^(mc|cut|dq)$/i.test(String(p.status||'').trim()))return -3;
+
+    // Once a player has made the cut, their fantasy floor is 1 point.
+    // Later-round score movement must never re-apply the Round 2 cut line.
+    if(p.madeCut){
+      const pts=positionPoints(p);
+      return pts===null?1:Math.max(1,pts);
+    }
 
     if(S.liveLeaderboard?.cutFinal){
-      if(p.missedCut||/^(mc|cut|dq)$/i.test(String(p.status||'').trim()))return -3;
       const pts=positionPoints(p);
-      return pts===null&&p.madeCut?1:pts;
+      return pts===null?1:Math.max(1,pts);
     }
 
     if(p.cut||belowProjectedCut(p))return -3;
