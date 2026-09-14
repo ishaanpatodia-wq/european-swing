@@ -11,6 +11,7 @@ async function loadBackendEvents(){
     e.r=row.round_no??e.r;
     e.m=Number(row.multiplier??e.m);
     e.chips=!!row.chips_allowed;
+    e.complete=!!row.completed;
     e.reveal=row.reveal_at||null;
     e.cutTarget=row.cut_deadline||null;
     e.pickTarget=row.reveal_at?new Date(new Date(row.reveal_at).getTime()-2*60*60*1000).toISOString():null;
