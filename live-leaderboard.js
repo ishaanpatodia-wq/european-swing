@@ -139,14 +139,15 @@
     });
     const when=S.liveLeaderboard?.updatedAt?new Date(S.liveLeaderboard.updatedAt).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}):null;
     const cut=S.liveLeaderboard?.projectedCut;
-    const meta=S.liveLeaderboard?.loading?'Updating…':S.liveLeaderboard?.error?'Scores unavailable':[
-      cut&&cut!=='—'?`${S.liveLeaderboard?.cutFinal?'Cut':'Projected cut'} ${cut}`:null,
-      when
-    ].filter(Boolean).join(' · ');
+    const finalEvent=S.liveLeaderboard?.eventComplete===true;
+    const meta=S.liveLeaderboard?.loading?'Updating…':S.liveLeaderboard?.error?'Scores unavailable':finalEvent
+      ? ['Final',when].filter(Boolean).join(' · ')
+      : [cut&&cut!=='—'?`${S.liveLeaderboard?.cutFinal?'Cut':'Projected cut'} ${cut}`:null,when].filter(Boolean).join(' · ');
+    const standingsTitle=finalEvent?'Final standings':'Projected standings';
     return `<div class="live-board">
       ${meta?`<div class="live-status"><span>${esc(meta)}</span></div>`:''}
       <section class="live-league">
-        <div class="live-league-title">Projected standings</div>
+        <div class="live-league-title">${standingsTitle}</div>
         <table class="live-table league-table"><thead><tr><th>Rank</th><th>Player</th><th>Pts</th></tr></thead>
         <tbody>${ordered.map((m,i)=>`<tr><td>${i+1}</td><td>${esc(m.player)}</td><td class="live-points">${m.total===null?'—':fmtPts(m.total)}</td></tr>`).join('')}</tbody></table>
       </section>
@@ -190,6 +191,7 @@
         projectedCut:data.projectedCut||null,
         projectedCutMethod:data.projectedCutMethod||null,
         cutFinal:data.cutFinal===true,
+        eventComplete:data.eventComplete===true,
         loading:false,
         error:data.error||null
       };
