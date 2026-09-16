@@ -5,7 +5,7 @@ function pickPanel(){
   if(S.error)return `<div class="card pad"><h2>Link problem</h2><div class="notice">${esc(S.error)}</div></div>`;
   if(!S.rank.length)return `<div class="card pad"><div class="titlebar"><h2>${e.name}</h2></div><div class="notice">Ranking list will appear here when the field is ready.</div></div>`;
   if(revealedNow(e))return `<div class="card pad"><div class="titlebar"><h2>Teams</h2><span class="label">Revealed</span></div>${revealHtml()}</div>`;
-  if(S.status?.submitted&&!S.roster.length)return `<div class="card pad"><div class="titlebar"><h2>Your entry</h2><span class="label">${esc(S.user)}</span></div>${ownLocked()}</div>`;
+  if(S.status?.submitted&&!S.editing)return `<div class="card pad"><div class="titlebar"><h2>Your entry</h2><span class="label">${esc(S.user)}</span></div>${ownLocked()}</div>`;
 
   const limit=activeBudget();
   const remain=limit-rosterCost();
