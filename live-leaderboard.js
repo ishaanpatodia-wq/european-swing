@@ -23,8 +23,6 @@
   function isWithdrawn(p){return !!p&&(p.withdrawn||/^(wd|w\/d|withdrawn|ret|retired|retire|rt)$/i.test(String(p.status||p.position||'').trim()))}
   function belowProjectedCut(p){
     if(!p||isWithdrawn(p)||p.madeCut||S.liveLeaderboard?.cutFinal)return false;
-    const round=Number(p.round||S.liveLeaderboard?.round||0);
-    if(round<2)return false;
     const cut=Number(S.liveLeaderboard?.projectedCutScore),score=Number(p.scoreNumber);
     return Number.isFinite(cut)&&Number.isFinite(score)&&score>cut;
   }
