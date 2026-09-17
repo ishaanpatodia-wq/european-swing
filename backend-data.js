@@ -14,12 +14,15 @@ async function loadBackendEvents(){
     e.complete=!!row.completed;
     e.reveal=row.reveal_at||null;
     e.cutTarget=row.cut_deadline||null;
-    e.pickTarget=row.reveal_at?new Date(new Date(row.reveal_at).getTime()-2*60*60*1000).toISOString():null;
+    e.pickTarget=row.pick_deadline||null;
   }
 
   if(!S.autoEventChosen){
-    const upcoming=EVENTS.filter(x=>x.reveal&&new Date(x.reveal).getTime()>Date.now()).sort((a,b)=>new Date(a.reveal)-new Date(b.reveal))[0];
-    if(upcoming)S.event=upcoming.id;
+    // The current event is the earliest event in round order that is not complete.
+    // This remains correct before picks, after reveal, during live play and until
+    // the event is explicitly marked complete. Completed events stay historical.
+    const current=EVENTS.filter(x=>!x.complete).sort((a,b)=>a.r-b.r)[0];
+    if(current)S.event=current.id;
     S.autoEventChosen=true;
   }
 }
