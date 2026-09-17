@@ -18,11 +18,11 @@ async function loadBackendEvents(){
   }
 
   if(!S.autoEventChosen){
-    // The current event is the earliest event in round order that is not complete.
-    // This remains correct before picks, after reveal, during live play and until
-    // the event is explicitly marked complete. Completed events stay historical.
     const current=EVENTS.filter(x=>!x.complete).sort((a,b)=>a.r-b.r)[0];
-    if(current)S.event=current.id;
+    if(current){
+      S.event=current.id;
+      try{localStorage.setItem('euro_current_event',current.id)}catch{}
+    }
     S.autoEventChosen=true;
   }
 }
