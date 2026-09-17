@@ -21,7 +21,13 @@
     return candidates.length===1?candidates[0]:null;
   }
   function isWithdrawn(p){return !!p&&(p.withdrawn||/^(wd|w\/d|withdrawn|ret|retired|retire|rt)$/i.test(String(p.status||p.position||'').trim()))}
-  function belowProjectedCut(p){if(!p||isWithdrawn(p)||p.madeCut||S.liveLeaderboard?.cutFinal)return false;const cut=Number(S.liveLeaderboard?.projectedCutScore),score=Number(p.scoreNumber);return Number.isFinite(cut)&&Number.isFinite(score)&&score>cut}
+  function belowProjectedCut(p){
+    if(!p||isWithdrawn(p)||p.madeCut||S.liveLeaderboard?.cutFinal)return false;
+    const round=Number(p.round||S.liveLeaderboard?.round||0);
+    if(round<2)return false;
+    const cut=Number(S.liveLeaderboard?.projectedCutScore),score=Number(p.scoreNumber);
+    return Number.isFinite(cut)&&Number.isFinite(score)&&score>cut;
+  }
   function positionPoints(p){let pos=Number(p?.positionNumber);if(!Number.isFinite(pos)||pos<=0){const m=String(p?.position||'').match(/\d+/);pos=m?Number(m[0]):NaN}if(!Number.isFinite(pos))return null;if(pos===1)return 30;if(pos===2)return 20;if(pos===3)return 15;if(pos<=5)return 10;if(pos<=10)return 7;if(pos<=25)return 5;return 1}
   function projectedPoints(p){if(!p)return null;if(isWithdrawn(p))return -3;if(p.missedCut||/^(mc|cut|dq)$/i.test(String(p.status||'').trim()))return -3;if(p.madeCut){const pts=positionPoints(p);return pts===null?1:Math.max(1,pts)}if(S.liveLeaderboard?.cutFinal){const pts=positionPoints(p);return pts===null?1:Math.max(1,pts)}if(p.cut||belowProjectedCut(p))return -3;return positionPoints(p)}
   const same=(a,b)=>norm(a)===norm(b);const fmtPts=n=>Number.isFinite(n)?String(Number.isInteger(n)?n:Number(n.toFixed(1))):'—';
