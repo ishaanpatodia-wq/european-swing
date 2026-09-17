@@ -4,7 +4,7 @@
 
   S.liveLeaderboard=S.liveLeaderboard||{eventId:null,players:[],updatedAt:null,loading:false,error:null};
 
-  const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/ø/g,'o').replace(/æ/g,'ae').replace(/å/g,'a').replace(/ł/g,'l').replace(/ð/g,'d').replace(/þ/g,'th').replace(/[^a-z0-9]+/g,' ').trim();
   const LIVE_ALIASES={
     'nacho elvira':'ignacio elvira mijares'
   };
