@@ -15,7 +15,10 @@ const SC=[['1st',30],['2nd',20],['3rd',15],['4th–5th',10],['6th–10th',7],['1
 let AUTH=null;
 try{AUTH=JSON.parse(localStorage.getItem('euro_auth')||'null')}catch{}
 let TOKEN=AUTH?.token||'';
-let S={event:'irish-open',rank:[],roster:[],chip:null,double:null,extra:null,status:null,revealed:null,user:AUTH?.name||null,filter:0,showRules:false,loading:true,error:null,loginName:null,loginError:null,loginBusy:false,loginSetup:false,accountOpen:false,accountError:null,accountBusy:false,editing:false};
+let initialEvent='bmw-pga';
+try{initialEvent=localStorage.getItem('euro_current_event')||initialEvent}catch{}
+if(!EVENTS.some(x=>x.id===initialEvent))initialEvent='bmw-pga';
+let S={event:initialEvent,rank:[],roster:[],chip:null,double:null,extra:null,status:null,revealed:null,user:AUTH?.name||null,filter:0,showRules:false,loading:true,error:null,loginName:null,loginError:null,loginBusy:false,loginSetup:false,accountOpen:false,accountError:null,accountBusy:false,editing:false};
 const ev=()=>EVENTS.find(x=>x.id===S.event);
 const rosterCost=()=>S.roster.reduce((a,b)=>a+b.points,0);
 const totalCost=()=>rosterCost()+(S.chip==='AND'&&S.extra?S.extra.points:0);
