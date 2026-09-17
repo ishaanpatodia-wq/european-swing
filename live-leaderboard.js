@@ -4,216 +4,31 @@
 
   S.liveLeaderboard=S.liveLeaderboard||{eventId:null,players:[],updatedAt:null,loading:false,error:null};
 
-  const norm=s=>String(s||'')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const hasLiveData=()=>Array.isArray(S.liveLeaderboard?.players)&&S.liveLeaderboard.players.length>0;
 
   function livePlayer(name){
-    const target=norm(name);
-    const rows=S.liveLeaderboard?.players||[];
-    let hit=rows.find(p=>norm(p.name)===target);
-    if(hit)return hit;
-    const bits=target.split(' ').filter(Boolean);
-    const first=bits[0]||'';
-    const last=bits[bits.length-1]||'';
-    const candidates=rows.filter(p=>{
-      const b=norm(p.name).split(' ').filter(Boolean);
-      return b.length&&b[b.length-1]===last&&(!first||b[0]?.[0]===first[0]);
-    });
+    if(!hasLiveData())return null;
+    const target=norm(name);const rows=S.liveLeaderboard.players||[];
+    let hit=rows.find(p=>norm(p.name)===target);if(hit)return hit;
+    const bits=target.split(' ').filter(Boolean),first=bits[0]||'',last=bits[bits.length-1]||'';
+    const candidates=rows.filter(p=>{const b=norm(p.name).split(' ').filter(Boolean);return b.length&&b[b.length-1]===last&&(!first||b[0]?.[0]===first[0])});
     return candidates.length===1?candidates[0]:null;
   }
-
-  function isWithdrawn(p){
-    if(!p)return false;
-    if(p.withdrawn)return true;
-    return /^(wd|w\/d|withdrawn|ret|retired|retire|rt)$/i.test(String(p.status||p.position||'').trim());
-  }
-
-  function belowProjectedCut(p){
-    if(!p||isWithdrawn(p)||p.madeCut||S.liveLeaderboard?.cutFinal)return false;
-    const cut=Number(S.liveLeaderboard?.projectedCutScore);
-    const score=Number(p.scoreNumber);
-    return Number.isFinite(cut)&&Number.isFinite(score)&&score>cut;
-  }
-
-  function positionPoints(p){
-    let pos=Number(p?.positionNumber);
-    if(!Number.isFinite(pos)||pos<=0){
-      const m=String(p?.position||'').match(/\d+/);
-      pos=m?Number(m[0]):NaN;
-    }
-    if(!Number.isFinite(pos))return null;
-    if(pos===1)return 30;
-    if(pos===2)return 20;
-    if(pos===3)return 15;
-    if(pos<=5)return 10;
-    if(pos<=10)return 7;
-    if(pos<=25)return 5;
-    return 1;
-  }
-
-  function projectedPoints(p){
-    if(!p)return null;
-    if(isWithdrawn(p))return -3;
-    if(p.missedCut||/^(mc|cut|dq)$/i.test(String(p.status||'').trim()))return -3;
-
-    // Once a player has made the cut, their fantasy floor is 1 point.
-    // Later-round score movement must never re-apply the Round 2 cut line.
-    if(p.madeCut){
-      const pts=positionPoints(p);
-      return pts===null?1:Math.max(1,pts);
-    }
-
-    if(S.liveLeaderboard?.cutFinal){
-      const pts=positionPoints(p);
-      return pts===null?1:Math.max(1,pts);
-    }
-
-    if(p.cut||belowProjectedCut(p))return -3;
-    return positionPoints(p);
-  }
-
-  const same=(a,b)=>norm(a)===norm(b);
-  const fmtPts=n=>Number.isFinite(n)?String(Number.isInteger(n)?n:Number(n.toFixed(1))):'—';
-
-  function teamModel(t){
-    const names=[...(t?.picks||[]),...(t?.extra_player?[t.extra_player]:[])];
-    const multiplier=Number(ev()?.m||1);
-    const rows=names.map(name=>{
-      const live=livePlayer(name);
-      let base=projectedPoints(live);
-      const isCut=same(t?.cut_player,name);
-      const isDouble=same(t?.double_player,name);
-      const isAnd=same(t?.extra_player,name);
-      const withdrawn=isWithdrawn(live);
-      let effective=base;
-      if(isCut)effective=0;
-      else if(isDouble&&Number.isFinite(effective))effective*=2;
-      if(Number.isFinite(effective))effective*=multiplier;
-      return {name,live,base,effective,isCut,isDouble,isAnd,withdrawn,projectedOut:belowProjectedCut(live)};
-    }).sort((a,b)=>{
-      const ap=Number.isFinite(a.effective)?a.effective:-999;
-      const bp=Number.isFinite(b.effective)?b.effective:-999;
-      if(bp!==ap)return bp-ap;
-      const apos=Number(a.live?.positionNumber)||9999;
-      const bpos=Number(b.live?.positionNumber)||9999;
-      return apos-bpos||a.name.localeCompare(b.name);
-    });
-    const complete=rows.length>0&&rows.every(r=>Number.isFinite(r.effective));
-    const total=complete?rows.reduce((s,r)=>s+r.effective,0):null;
-    return {player:t?.player_name||'',rows,total,complete};
-  }
-
-  function tags(r){
-    const out=[];
-    if(r.withdrawn)out.push('<span class="tag">WD</span>');
-    if(r.isAnd)out.push('<span class="tag">AND</span>');
-    if(r.isDouble)out.push('<span class="tag">2×</span>');
-    if(r.isCut)out.push('<span class="tag">CUT</span>');
-    return out.length?` <span class="live-tags">${out.join('')}</span>`:'';
-  }
-
-  function teamTable(model){
-    return `<section class="live-team">
-      <div class="live-team-head"><h3>${esc(model.player)}</h3><span>${model.total===null?'—':fmtPts(model.total)} pts</span></div>
-      <div class="live-table-wrap"><table class="live-table team-table">
-        <thead><tr><th>Player</th><th>Score</th><th>Pos</th><th>Pts</th></tr></thead>
-        <tbody>${model.rows.map(r=>`<tr>
-          <td><span class="live-player-name">${esc(r.name)}</span>${tags(r)}</td>
-          <td>${esc(r.live?.score||'—')}</td>
-          <td>${r.withdrawn||r.live?.missedCut?'':esc(r.live?.position||'—')}</td>
-          <td class="live-points">${fmtPts(r.effective)}</td>
-        </tr>`).join('')}</tbody>
-      </table></div>
-    </section>`;
-  }
-
-  function liveMarkup(){
-    const entries=S.revealed||[];
-    const models=entries.map(teamModel);
-    const ordered=models.slice().sort((a,b)=>{
-      if(a.total===null&&b.total===null)return a.player.localeCompare(b.player);
-      if(a.total===null)return 1;
-      if(b.total===null)return -1;
-      return b.total-a.total||a.player.localeCompare(b.player);
-    });
-    const when=S.liveLeaderboard?.updatedAt?new Date(S.liveLeaderboard.updatedAt).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}):null;
-    const cut=S.liveLeaderboard?.projectedCut;
-    const finalEvent=S.liveLeaderboard?.eventComplete===true;
-    const meta=S.liveLeaderboard?.loading?'Updating…':S.liveLeaderboard?.error?'Scores unavailable':finalEvent
-      ? ['Final',when].filter(Boolean).join(' · ')
-      : [cut&&cut!=='—'?`${S.liveLeaderboard?.cutFinal?'Cut':'Projected cut'} ${cut}`:null,when].filter(Boolean).join(' · ');
-    const standingsTitle=finalEvent?'Final standings':'Projected standings';
-    return `<div class="live-board">
-      ${meta?`<div class="live-status"><span>${esc(meta)}</span></div>`:''}
-      <section class="live-league">
-        <div class="live-league-title">${standingsTitle}</div>
-        <table class="live-table league-table"><thead><tr><th>Rank</th><th>Player</th><th>Pts</th></tr></thead>
-        <tbody>${ordered.map((m,i)=>`<tr><td>${i+1}</td><td>${esc(m.player)}</td><td class="live-points">${m.total===null?'—':fmtPts(m.total)}</td></tr>`).join('')}</tbody></table>
-      </section>
-      <div class="live-teams">${models.map(teamTable).join('')}</div>
-    </div>`;
-  }
-
-  revealHtml=function(){
-    return `<div id="liveReveal">${liveMarkup()}</div>`;
-  };
-
-  function paintLive(){
-    const box=document.getElementById('liveReveal');
-    if(box)box.innerHTML=liveMarkup();
-  }
-
-  async function loadLive(force=false){
-    if(!TOKEN||!revealedNow(ev()))return;
-    if(!force&&S.liveLeaderboard.loading)return;
-    if(S.liveLeaderboard.eventId!==S.event){
-      S.liveLeaderboard={eventId:S.event,players:[],updatedAt:null,loading:true,error:null};
-    }else{
-      S.liveLeaderboard.loading=true;
-      S.liveLeaderboard.error=null;
-    }
-    paintLive();
-    try{
-      const r=await fetch(`${cfg.supabaseUrl}/functions/v1/${LIVE_FN}?event=${encodeURIComponent(S.event)}`,{
-        cache:'no-store',
-        headers:{apikey:cfg.supabaseAnonKey}
-      });
-      if(!r.ok)throw new Error(`Live feed ${r.status}`);
-      const data=await r.json();
-      S.liveLeaderboard={
-        eventId:S.event,
-        players:Array.isArray(data.players)?data.players:[],
-        updatedAt:data.updatedAt||new Date().toISOString(),
-        round:data.round||null,
-        eventName:data.eventName||null,
-        projectedCutScore:data.projectedCutScore,
-        projectedCut:data.projectedCut||null,
-        projectedCutMethod:data.projectedCutMethod||null,
-        cutFinal:data.cutFinal===true,
-        eventComplete:data.eventComplete===true,
-        loading:false,
-        error:data.error||null
-      };
-    }catch(e){
-      S.liveLeaderboard.loading=false;
-      S.liveLeaderboard.error='unavailable';
-    }
-    paintLive();
-  }
-
-  const baseRefresh=refresh;
-  refresh=async function(){
-    await baseRefresh();
-    if(TOKEN&&revealedNow(ev()))loadLive(true);
-  };
-
-  setInterval(()=>{
-    if(TOKEN&&revealedNow(ev()))loadLive();
-  },LIVE_REFRESH_MS);
-
-  if(TOKEN&&revealedNow(ev())){
-    render();
-    loadLive(true);
-  }
+  function isWithdrawn(p){return !!p&&(p.withdrawn||/^(wd|w\/d|withdrawn|ret|retired|retire|rt)$/i.test(String(p.status||p.position||'').trim()))}
+  function belowProjectedCut(p){if(!p||isWithdrawn(p)||p.madeCut||S.liveLeaderboard?.cutFinal)return false;const cut=Number(S.liveLeaderboard?.projectedCutScore),score=Number(p.scoreNumber);return Number.isFinite(cut)&&Number.isFinite(score)&&score>cut}
+  function positionPoints(p){let pos=Number(p?.positionNumber);if(!Number.isFinite(pos)||pos<=0){const m=String(p?.position||'').match(/\d+/);pos=m?Number(m[0]):NaN}if(!Number.isFinite(pos))return null;if(pos===1)return 30;if(pos===2)return 20;if(pos===3)return 15;if(pos<=5)return 10;if(pos<=10)return 7;if(pos<=25)return 5;return 1}
+  function projectedPoints(p){if(!p)return null;if(isWithdrawn(p))return -3;if(p.missedCut||/^(mc|cut|dq)$/i.test(String(p.status||'').trim()))return -3;if(p.madeCut){const pts=positionPoints(p);return pts===null?1:Math.max(1,pts)}if(S.liveLeaderboard?.cutFinal){const pts=positionPoints(p);return pts===null?1:Math.max(1,pts)}if(p.cut||belowProjectedCut(p))return -3;return positionPoints(p)}
+  const same=(a,b)=>norm(a)===norm(b);const fmtPts=n=>Number.isFinite(n)?String(Number.isInteger(n)?n:Number(n.toFixed(1))):'—';
+  function teamModel(t){const names=[...(t?.picks||[]),...(t?.extra_player?[t.extra_player]:[])],multiplier=Number(ev()?.m||1);const rows=names.map(name=>{const live=livePlayer(name);let base=projectedPoints(live);const isCut=same(t?.cut_player,name),isDouble=same(t?.double_player,name),isAnd=same(t?.extra_player,name),withdrawn=isWithdrawn(live);let effective=base;if(isCut)effective=0;else if(isDouble&&Number.isFinite(effective))effective*=2;if(Number.isFinite(effective))effective*=multiplier;return{name,live,base,effective,isCut,isDouble,isAnd,withdrawn,projectedOut:belowProjectedCut(live)}}).sort((a,b)=>{const ap=Number.isFinite(a.effective)?a.effective:-999,bp=Number.isFinite(b.effective)?b.effective:-999;if(bp!==ap)return bp-ap;const apos=Number(a.live?.positionNumber)||9999,bpos=Number(b.live?.positionNumber)||9999;return apos-bpos||a.name.localeCompare(b.name)});const complete=hasLiveData()&&rows.length>0&&rows.every(r=>Number.isFinite(r.effective));return{player:t?.player_name||'',rows,total:complete?rows.reduce((s,r)=>s+r.effective,0):null,complete}}
+  function tags(r){const out=[];if(r.withdrawn)out.push('<span class="tag">WD</span>');if(r.isAnd)out.push('<span class="tag">AND</span>');if(r.isDouble)out.push('<span class="tag">2×</span>');if(r.isCut)out.push('<span class="tag">CUT</span>');return out.length?` <span class="live-tags">${out.join('')}</span>`:''}
+  function preStartMarkup(){const entries=S.revealed||[];return `<div class="live-board"><div class="live-status"><span>Teams revealed · scoring begins when tournament play starts</span></div><div class="live-teams">${entries.map(t=>`<section class="live-team"><div class="live-team-head"><h3>${esc(t.player_name||'')}</h3></div><div class="live-table-wrap"><table class="live-table team-table"><thead><tr><th>Player</th></tr></thead><tbody>${[...(t.picks||[]),...(t.extra_player?[t.extra_player]:[])].map(n=>`<tr><td><span class="live-player-name">${esc(n)}</span>${t.extra_player===n?' <span class="tag">AND</span>':''}${t.double_player===n?' <span class="tag">2×</span>':''}</td></tr>`).join('')}</tbody></table></div></section>`).join('')}</div></div>`}
+  function teamTable(model){return `<section class="live-team"><div class="live-team-head"><h3>${esc(model.player)}</h3><span>${model.total===null?'—':fmtPts(model.total)} pts</span></div><div class="live-table-wrap"><table class="live-table team-table"><thead><tr><th>Player</th><th>Score</th><th>Pos</th><th>Pts</th></tr></thead><tbody>${model.rows.map(r=>`<tr><td><span class="live-player-name">${esc(r.name)}</span>${tags(r)}</td><td>${esc(r.live?.score||'—')}</td><td>${r.withdrawn||r.live?.missedCut?'':esc(r.live?.position||'—')}</td><td class="live-points">${fmtPts(r.effective)}</td></tr>`).join('')}</tbody></table></div></section>`}
+  function liveMarkup(){if(!hasLiveData())return preStartMarkup();const entries=S.revealed||[],models=entries.map(teamModel),ordered=models.slice().sort((a,b)=>{if(a.total===null&&b.total===null)return a.player.localeCompare(b.player);if(a.total===null)return 1;if(b.total===null)return -1;return b.total-a.total||a.player.localeCompare(b.player)});const when=S.liveLeaderboard?.updatedAt?new Date(S.liveLeaderboard.updatedAt).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}):null,cut=S.liveLeaderboard?.projectedCut,finalEvent=S.liveLeaderboard?.eventComplete===true;const meta=S.liveLeaderboard?.loading?'Updating…':S.liveLeaderboard?.error?'Scores unavailable':finalEvent?['Final',when].filter(Boolean).join(' · '):[cut&&cut!=='—'?`${S.liveLeaderboard?.cutFinal?'Cut':'Projected cut'} ${cut}`:null,when].filter(Boolean).join(' · '),standingsTitle=finalEvent?'Final standings':'Projected standings';return `<div class="live-board">${meta?`<div class="live-status"><span>${esc(meta)}</span></div>`:''}<section class="live-league"><div class="live-league-title">${standingsTitle}</div><table class="live-table league-table"><thead><tr><th>Rank</th><th>Player</th><th>Pts</th></tr></thead><tbody>${ordered.map((m,i)=>`<tr><td>${i+1}</td><td>${esc(m.player)}</td><td class="live-points">${m.total===null?'—':fmtPts(m.total)}</td></tr>`).join('')}</tbody></table></section><div class="live-teams">${models.map(teamTable).join('')}</div></div>`}
+  revealHtml=function(){return `<div id="liveReveal">${liveMarkup()}</div>`};
+  function paintLive(){const box=document.getElementById('liveReveal');if(box)box.innerHTML=liveMarkup()}
+  async function loadLive(force=false){if(!TOKEN||!revealedNow(ev())||ev()?.complete)return;if(!force&&S.liveLeaderboard.loading)return;if(S.liveLeaderboard.eventId!==S.event)S.liveLeaderboard={eventId:S.event,players:[],updatedAt:null,loading:true,error:null};else{S.liveLeaderboard.loading=true;S.liveLeaderboard.error=null}paintLive();try{const r=await fetch(`${cfg.supabaseUrl}/functions/v1/${LIVE_FN}?event=${encodeURIComponent(S.event)}`,{cache:'no-store',headers:{apikey:cfg.supabaseAnonKey}});if(!r.ok)throw new Error(`Live feed ${r.status}`);const data=await r.json();S.liveLeaderboard={eventId:S.event,players:Array.isArray(data.players)?data.players:[],updatedAt:data.updatedAt||new Date().toISOString(),round:data.round||null,eventName:data.eventName||null,projectedCutScore:data.projectedCutScore,projectedCut:data.projectedCut||null,projectedCutMethod:data.projectedCutMethod||null,cutFinal:data.cutFinal===true,eventComplete:data.eventComplete===true,loading:false,error:data.error||null}}catch(e){S.liveLeaderboard.loading=false;S.liveLeaderboard.error='unavailable'}paintLive()}
+  const baseRefresh=refresh;refresh=async function(){await baseRefresh();if(TOKEN&&revealedNow(ev())&&!ev()?.complete)loadLive(true)};
+  setInterval(()=>{if(TOKEN&&revealedNow(ev())&&!ev()?.complete)loadLive()},LIVE_REFRESH_MS);
+  if(TOKEN&&revealedNow(ev())&&!ev()?.complete){render();loadLive(true)}
 })();
