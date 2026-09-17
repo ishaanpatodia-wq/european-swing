@@ -5,12 +5,17 @@
   S.liveLeaderboard=S.liveLeaderboard||{eventId:null,players:[],updatedAt:null,loading:false,error:null};
 
   const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const LIVE_ALIASES={
+    'nacho elvira':'ignacio elvira mijares'
+  };
   const hasLiveData=()=>Array.isArray(S.liveLeaderboard?.players)&&S.liveLeaderboard.players.length>0;
 
   function livePlayer(name){
     if(!hasLiveData())return null;
     const target=norm(name);const rows=S.liveLeaderboard.players||[];
     let hit=rows.find(p=>norm(p.name)===target);if(hit)return hit;
+    const alias=LIVE_ALIASES[target];
+    if(alias){hit=rows.find(p=>norm(p.name)===alias);if(hit)return hit;}
     const bits=target.split(' ').filter(Boolean),first=bits[0]||'',last=bits[bits.length-1]||'';
     const candidates=rows.filter(p=>{const b=norm(p.name).split(' ').filter(Boolean);return b.length&&b[b.length-1]===last&&(!first||b[0]?.[0]===first[0])});
     return candidates.length===1?candidates[0]:null;
