@@ -3,7 +3,7 @@
   let lastRun=0;
 
   async function refreshLiveOnResume(){
-    if(document.visibilityState==='hidden'||busy||!TOKEN)return;
+    if(document.visibilityState==='hidden'||busy)return;
     const e=ev();
     if(!e||!revealedNow(e)||e.complete)return;
     const now=Date.now();
