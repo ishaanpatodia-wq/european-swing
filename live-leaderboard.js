@@ -40,5 +40,5 @@
   window.refreshLiveNow=()=>loadLive(true);
   const baseRefresh=refresh;refresh=async function(){await baseRefresh();if(revealedNow(ev())&&!ev()?.complete)loadLive(true)};
   setInterval(()=>{if(revealedNow(ev())&&!ev()?.complete)loadLive()},LIVE_REFRESH_MS);
-  if(revealedNow(ev())&&!ev()?.complete){render();loadLive(true)}
+  render();loadLive(true)
 })();
