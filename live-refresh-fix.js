@@ -7,10 +7,13 @@
     const e=ev();
     if(!e||!revealedNow(e)||e.complete)return;
     const now=Date.now();
-    if(now-lastRun<5000)return;
+    if(now-lastRun<1500)return;
     lastRun=now;
     busy=true;
-    try{await refresh()}catch(_e){}finally{busy=false}
+    try{
+      if(typeof window.refreshLiveNow==='function')await window.refreshLiveNow();
+      else await refresh();
+    }catch(_e){}finally{busy=false}
   }
 
   window.addEventListener('focus',refreshLiveOnResume);
@@ -18,5 +21,5 @@
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='visible')refreshLiveOnResume();
   });
-  setTimeout(refreshLiveOnResume,750);
+  setTimeout(refreshLiveOnResume,250);
 })();
