@@ -1,6 +1,8 @@
 (function(){
   const LIVE_REFRESH_MS=15000;
   const LIVE_FN='dpwt-live';
+  let liveRequestSeq=0;
+  let retryTimer=null;
 
   S.liveLeaderboard=S.liveLeaderboard||{eventId:null,players:[],updatedAt:null,loading:false,error:null};
 
@@ -46,9 +48,66 @@
     return `${cutBox}<div id="liveReveal">${liveMarkup()}</div>`;
   };
   function paintLive(){const box=document.getElementById('liveReveal');if(box)box.innerHTML=liveMarkup()}
-  async function loadLive(force=false){if(!revealedNow(ev())||ev()?.complete)return;if(!force&&S.liveLeaderboard.loading)return;if(S.liveLeaderboard.eventId!==S.event)S.liveLeaderboard={eventId:S.event,players:[],updatedAt:null,loading:true,error:null};else{S.liveLeaderboard.loading=true;S.liveLeaderboard.error=null}paintLive();try{const r=await fetch(`${cfg.supabaseUrl}/functions/v1/${LIVE_FN}?event=${encodeURIComponent(S.event)}&_=${Date.now()}`,{cache:'no-store',headers:{apikey:cfg.supabaseAnonKey,'cache-control':'no-cache','pragma':'no-cache'}});if(!r.ok)throw new Error(`Live feed ${r.status}`);const data=await r.json();const incoming=Array.isArray(data.players)?data.players:[];if(data.eventId===S.event&&data.sourceVerified===true&&data.playStarted===true&&incoming.length){S.liveLeaderboard={eventId:S.event,players:incoming,updatedAt:data.updatedAt||new Date().toISOString(),round:data.round||null,eventName:data.eventName||null,sourceVerified:true,playStarted:true,projectedCutScore:data.projectedCutScore,projectedCut:data.projectedCut||null,projectedCutMethod:data.projectedCutMethod||null,cutFinal:data.cutFinal===true,eventComplete:data.eventComplete===true,loading:false,error:data.error||null};}else{S.liveLeaderboard={eventId:S.event,players:[],updatedAt:data.updatedAt||new Date().toISOString(),round:data.round||null,eventName:data.eventName||null,sourceVerified:false,playStarted:false,projectedCutScore:null,projectedCut:null,projectedCutMethod:null,cutFinal:false,eventComplete:false,loading:false,error:data.error||null};}}catch(e){S.liveLeaderboard.loading=false;S.liveLeaderboard.error=String(e?.message||e||'unavailable')}paintLive()}
+  function scheduleRetry(eventId){
+    clearTimeout(retryTimer);
+    retryTimer=setTimeout(()=>{
+      if(S.event===eventId&&revealedNow(ev())&&!ev()?.complete&&!hasLiveData())loadLive(true);
+    },2500);
+  }
+  async function loadLive(force=false){
+    const requestedEvent=S.event;
+    const requestedEv=EVENTS.find(x=>x.id===requestedEvent);
+    if(!requestedEv||!revealedNow(requestedEv)||requestedEv.complete)return;
+    if(!force&&S.liveLeaderboard.loading&&S.liveLeaderboard.eventId===requestedEvent)return;
+
+    const requestSeq=++liveRequestSeq;
+    if(S.liveLeaderboard.eventId!==requestedEvent){
+      S.liveLeaderboard={eventId:requestedEvent,players:[],updatedAt:null,loading:true,error:null,sourceVerified:false,playStarted:false};
+    }else{
+      S.liveLeaderboard.loading=true;
+      S.liveLeaderboard.error=null;
+    }
+    paintLive();
+
+    try{
+      const r=await fetch(`${cfg.supabaseUrl}/functions/v1/${LIVE_FN}?event=${encodeURIComponent(requestedEvent)}&_=${Date.now()}`,{
+        cache:'no-store',
+        headers:{apikey:cfg.supabaseAnonKey,'cache-control':'no-cache','pragma':'no-cache'}
+      });
+      if(!r.ok)throw new Error(`Live feed ${r.status}`);
+      const data=await r.json();
+
+      // Never allow an older in-flight request to overwrite the current event.
+      if(requestSeq!==liveRequestSeq||S.event!==requestedEvent)return;
+
+      const incoming=Array.isArray(data.players)?data.players:[];
+      if(data.eventId===requestedEvent&&data.sourceVerified===true&&data.playStarted===true&&incoming.length){
+        S.liveLeaderboard={
+          eventId:requestedEvent,players:incoming,updatedAt:data.updatedAt||new Date().toISOString(),
+          round:data.round||null,eventName:data.eventName||null,sourceVerified:true,playStarted:true,
+          projectedCutScore:data.projectedCutScore,projectedCut:data.projectedCut||null,
+          projectedCutMethod:data.projectedCutMethod||null,cutFinal:data.cutFinal===true,
+          eventComplete:data.eventComplete===true,loading:false,error:data.error||null
+        };
+        clearTimeout(retryTimer);
+      }else{
+        S.liveLeaderboard={
+          eventId:requestedEvent,players:[],updatedAt:data.updatedAt||new Date().toISOString(),
+          round:data.round||null,eventName:data.eventName||null,sourceVerified:false,playStarted:false,
+          projectedCutScore:null,projectedCut:null,projectedCutMethod:null,cutFinal:false,
+          eventComplete:false,loading:false,error:data.error||null
+        };
+        scheduleRetry(requestedEvent);
+      }
+    }catch(e){
+      if(requestSeq!==liveRequestSeq||S.event!==requestedEvent)return;
+      S.liveLeaderboard.loading=false;
+      S.liveLeaderboard.error=String(e?.message||e||'unavailable');
+      scheduleRetry(requestedEvent);
+    }
+    if(requestSeq===liveRequestSeq&&S.event===requestedEvent)paintLive();
+  }
   window.refreshLiveNow=()=>loadLive(true);
-  const baseRefresh=refresh;refresh=async function(){await baseRefresh();if(revealedNow(ev())&&!ev()?.complete)loadLive(true)};
   setInterval(()=>{if(revealedNow(ev())&&!ev()?.complete)loadLive()},LIVE_REFRESH_MS);
   try{for(const e of EVENTS)localStorage.removeItem('euro_live_'+e.id)}catch(_e){}S.liveLeaderboard={eventId:S.event,players:[],updatedAt:null,loading:false,error:null,sourceVerified:false,playStarted:false};render();loadLive(true)
 })();
