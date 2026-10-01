@@ -47,4 +47,9 @@ refresh=async function(){
   if(TOKEN){
     try{await loadStandings();render()}catch(e){}
   }
+  // The initial app refresh can begin before the live-score module has loaded.
+  // By the time this async refresh finishes, trigger the current event's live fetch.
+  if(typeof window.refreshLiveNow==='function'&&revealedNow(ev())&&!ev()?.complete){
+    window.refreshLiveNow();
+  }
 };
