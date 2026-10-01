@@ -42,9 +42,16 @@
     const alreadyCut=!!own?.cut_player||!!S.status?.cut_player;
     const usedChipThisEvent=!!(own?.chip||S.status?.chip);
     const picks=own?.picks||S.status?.picks||[];
-    const cutBox=ev()?.chips&&!cutUsedElsewhere&&!alreadyCut&&!usedChipThisEvent&&picks.length
-      ? `<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">Available until Friday 12:00 AM IST</span></div><div class="cutbox"><div class="cutrow"><select id="cutSelect" class="select"><option value="">Select player to cut</option>${picks.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select><button class="ghost" id="cutBtn">Use CUT</button></div><small>The selected golfer will score 0 for this event.</small></div></div>`
-      : '';
+    const cutEligible=ev()?.chips&&!cutUsedElsewhere&&!alreadyCut&&!usedChipThisEvent&&picks.length;
+    const cutWindowOpen=S.liveLeaderboard?.cutChipOpen===true;
+    const cutRoundTwoDone=S.liveLeaderboard?.roundTwoComplete===true;
+    const cutRoundThreeStarted=S.liveLeaderboard?.roundThreeStarted===true;
+    let cutBox='';
+    if(cutEligible&&!cutRoundThreeStarted){
+      cutBox=cutWindowOpen
+        ? `<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">Open now · closes when Round 3 starts</span></div><div class="cutbox"><div class="cutrow"><select id="cutSelect" class="select"><option value="">Select player to cut</option>${picks.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select><button class="ghost" id="cutBtn">Use CUT</button></div><small>The selected golfer will score 0 for this event.</small></div></div>`
+        : `<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">${cutRoundTwoDone?'Waiting for Round 3':'Opens after Round 2'}</span></div><div class="notice">CUT becomes available only after Round 2 is complete and locks automatically when Round 3 begins.</div></div>`;
+    }
     return `${cutBox}<div id="liveReveal">${liveMarkup()}</div>`;
   };
   function paintLive(){const box=document.getElementById('liveReveal');if(box)box.innerHTML=liveMarkup()}
@@ -87,7 +94,9 @@
           round:data.round||null,eventName:data.eventName||null,sourceVerified:true,playStarted:true,
           projectedCutScore:data.projectedCutScore,projectedCut:data.projectedCut||null,
           projectedCutMethod:data.projectedCutMethod||null,cutFinal:data.cutFinal===true,
-          eventComplete:data.eventComplete===true,loading:false,error:data.error||null
+          eventComplete:data.eventComplete===true,cutChipOpen:data.cutChipOpen===true,
+          roundTwoComplete:data.roundTwoComplete===true,roundThreeStarted:data.roundThreeStarted===true,
+          loading:false,error:data.error||null
         };
         clearTimeout(retryTimer);
       }else{
@@ -95,7 +104,8 @@
           eventId:requestedEvent,players:[],updatedAt:data.updatedAt||new Date().toISOString(),
           round:data.round||null,eventName:data.eventName||null,sourceVerified:false,playStarted:false,
           projectedCutScore:null,projectedCut:null,projectedCutMethod:null,cutFinal:false,
-          eventComplete:false,loading:false,error:data.error||null
+          eventComplete:false,cutChipOpen:false,roundTwoComplete:data.roundTwoComplete===true,
+          roundThreeStarted:data.roundThreeStarted===true,loading:false,error:data.error||null
         };
         scheduleRetry(requestedEvent);
       }
