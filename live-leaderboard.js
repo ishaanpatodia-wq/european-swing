@@ -42,15 +42,23 @@
     const alreadyCut=!!own?.cut_player||!!S.status?.cut_player;
     const usedChipThisEvent=!!(own?.chip||S.status?.chip);
     const picks=own?.picks||S.status?.picks||[];
-    const cutEligible=ev()?.chips&&!cutUsedElsewhere&&!alreadyCut&&!usedChipThisEvent&&picks.length;
+    const cutSeasonAvailable=ev()?.chips&&!cutUsedElsewhere&&!alreadyCut&&picks.length;
     const cutWindowOpen=S.liveLeaderboard?.cutChipOpen===true;
     const cutRoundTwoDone=S.liveLeaderboard?.roundTwoComplete===true;
     const cutRoundThreeStarted=S.liveLeaderboard?.roundThreeStarted===true;
     let cutBox='';
-    if(cutEligible&&!cutRoundThreeStarted){
-      cutBox=cutWindowOpen
-        ? `<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">Open now · closes when Round 3 starts</span></div><div class="cutbox"><div class="cutrow"><select id="cutSelect" class="select"><option value="">Select player to cut</option>${picks.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select><button class="ghost" id="cutBtn">Use CUT</button></div><small>The selected golfer will score 0 for this event.</small></div></div>`
-        : `<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">${cutRoundTwoDone?'Waiting for Round 3':'Opens after Round 2'}</span></div><div class="notice">CUT becomes available only after Round 2 is complete and locks automatically when Round 3 begins.</div></div>`;
+    if(cutSeasonAvailable){
+      if(usedChipThisEvent){
+        cutBox=`<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">Still available this season</span></div><div class="notice">Unavailable this event because ${esc(own?.chip||S.status?.chip||'another chip')} is already being used. Only one chip may be used per event.</div></div>`;
+      }else if(cutRoundThreeStarted){
+        cutBox=`<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">Still available this season</span></div><div class="notice">This event's CUT window has closed because Round 3 has started.</div></div>`;
+      }else{
+        cutBox=cutWindowOpen
+          ? `<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">Open now · closes when Round 3 starts</span></div><div class="cutbox"><div class="cutrow"><select id="cutSelect" class="select"><option value="">Select player to cut</option>${picks.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select><button class="ghost" id="cutBtn">Use CUT</button></div><small>The selected golfer will score 0 for this event.</small></div></div>`
+          : `<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">${cutRoundTwoDone?'Waiting for Round 3':'Opens after Round 2'}</span></div><div class="notice">CUT becomes available only after Round 2 is complete and locks automatically when Round 3 begins.</div></div>`;
+      }
+    }else if(cutUsedElsewhere){
+      cutBox=`<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">Used this season</span></div></div>`;
     }
     return `${cutBox}<div id="liveReveal">${liveMarkup()}</div>`;
   };
