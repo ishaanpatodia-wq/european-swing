@@ -7,14 +7,12 @@
   S.liveLeaderboard=S.liveLeaderboard||{eventId:null,players:[],updatedAt:null,loading:false,error:null};
 
   const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/ø/g,'o').replace(/æ/g,'ae').replace(/å/g,'a').replace(/ł/g,'l').replace(/ð/g,'d').replace(/þ/g,'th').replace(/[^a-z0-9]+/g,' ').trim();
-  const LIVE_ALIASES={
-    'nacho elvira':'ignacio elvira mijares'
-  };
+  const LIVE_ALIASES={'nacho elvira':'ignacio elvira mijares'};
   const hasLiveData=()=>S.liveLeaderboard?.eventId===S.event&&S.liveLeaderboard?.sourceVerified===true&&S.liveLeaderboard?.playStarted===true&&Array.isArray(S.liveLeaderboard?.players)&&S.liveLeaderboard.players.length>0;
 
   function livePlayer(name){
     if(!hasLiveData())return null;
-    const target=norm(name);const rows=S.liveLeaderboard.players||[];
+    const target=norm(name),rows=S.liveLeaderboard.players||[];
     let hit=rows.find(p=>norm(p.name)===target);if(hit)return hit;
     const alias=LIVE_ALIASES[target];
     if(alias){hit=rows.find(p=>norm(p.name)===alias);if(hit)return hit;}
@@ -36,6 +34,13 @@
   function preStartMarkup(){const entries=S.revealed||[];return `<div class="live-board"><div class="live-status"><span>Teams revealed · scoring begins when tournament play starts</span></div><div class="live-teams">${entries.map(t=>`<section class="live-team"><div class="live-team-head"><h3>${esc(t.player_name||'')}</h3></div><div class="live-table-wrap"><table class="live-table team-table"><thead><tr><th>Player</th></tr></thead><tbody>${[...(t.picks||[]),...(t.extra_player?[t.extra_player]:[])].map(n=>`<tr><td><span class="live-player-name">${esc(n)}</span>${t.extra_player===n?' <span class="tag">AND</span>':''}${t.double_player===n?' <span class="tag">2×</span>':''}</td></tr>`).join('')}</tbody></table></div></section>`).join('')}</div></div>`}
   function teamTable(model){return `<section class="live-team"><div class="live-team-head"><h3>${esc(model.player)}</h3><span>${model.total===null?'—':fmtPts(model.total)} pts</span></div><div class="live-table-wrap"><table class="live-table team-table"><thead><tr><th>Player</th><th>Score</th><th>Pos</th><th>Pts</th></tr></thead><tbody>${model.rows.map(r=>`<tr><td><span class="live-player-name">${esc(r.name)}</span>${tags(r)}</td><td>${esc(r.live?.score||'—')}</td><td>${r.withdrawn||r.live?.missedCut?'':esc(r.live?.position||'—')}</td><td class="live-points">${fmtPts(r.effective)}</td></tr>`).join('')}</tbody></table></div></section>`}
   function liveMarkup(){if(!hasLiveData())return preStartMarkup();const entries=S.revealed||[],models=entries.map(teamModel),ordered=models.slice().sort((a,b)=>{if(a.total===null&&b.total===null)return a.player.localeCompare(b.player);if(a.total===null)return 1;if(b.total===null)return -1;return b.total-a.total||a.player.localeCompare(b.player)});const when=S.liveLeaderboard?.updatedAt?new Date(S.liveLeaderboard.updatedAt).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'}):null,cut=S.liveLeaderboard?.projectedCut,finalEvent=S.liveLeaderboard?.eventComplete===true;const meta=S.liveLeaderboard?.loading?'Updating…':S.liveLeaderboard?.error?'Scores unavailable':finalEvent?['Final',when].filter(Boolean).join(' · '):[cut&&cut!=='—'?`${S.liveLeaderboard?.cutFinal?'Cut':'Projected cut'} ${cut}`:null,when].filter(Boolean).join(' · '),standingsTitle=finalEvent?'Final standings':'Projected standings';return `<div class="live-board">${meta?`<div class="live-status"><span>${esc(meta)}</span></div>`:''}<section class="live-league"><div class="live-league-title">${standingsTitle}</div><table class="live-table league-table"><thead><tr><th>Rank</th><th>Player</th><th>Pts</th></tr></thead><tbody>${ordered.map((m,i)=>`<tr><td>${i+1}</td><td>${esc(m.player)}</td><td class="live-points">${m.total===null?'—':fmtPts(m.total)}</td></tr>`).join('')}</tbody></table></section><div class="live-teams">${models.map(teamTable).join('')}</div></div>`}
+
+  function cutDeadlineLabel(){
+    const d=S.liveLeaderboard?.cutDeadline;
+    if(!d)return '12:00 AM IST';
+    return new Date(d).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit',timeZone:'Asia/Kolkata'})+' IST';
+  }
+
   revealHtml=function(){
     const cutUsedElsewhere=!!S.status?.cut_used_elsewhere;
     const own=(S.revealed||[]).find(t=>String(t?.player_name||'').toLowerCase()===String(S.user||'').toLowerCase());
@@ -44,88 +49,66 @@
     const picks=own?.picks||S.status?.picks||[];
     const cutSeasonAvailable=ev()?.chips&&!cutUsedElsewhere&&!alreadyCut&&picks.length;
     const cutWindowOpen=S.liveLeaderboard?.cutChipOpen===true;
-    const cutRoundTwoDone=S.liveLeaderboard?.roundTwoComplete===true;
-    const cutRoundThreeStarted=S.liveLeaderboard?.roundThreeStarted===true;
+    const cutDecisionRound=Number(S.liveLeaderboard?.cutDecisionRound||1);
+    const decisionRoundComplete=cutDecisionRound===1?S.liveLeaderboard?.roundOneComplete===true:S.liveLeaderboard?.roundTwoComplete===true;
+    const deadlineMs=S.liveLeaderboard?.cutDeadline?new Date(S.liveLeaderboard.cutDeadline).getTime():null;
+    const deadlinePassed=Number.isFinite(deadlineMs)&&Date.now()>=deadlineMs;
+    const deadlineLabel=cutDeadlineLabel();
     let cutBox='';
     if(cutSeasonAvailable){
       if(usedChipThisEvent){
         cutBox=`<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">Still available this season</span></div><div class="notice">Unavailable this event because ${esc(own?.chip||S.status?.chip||'another chip')} is already being used. Only one chip may be used per event.</div></div>`;
-      }else if(cutRoundThreeStarted){
-        cutBox=`<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">Still available this season</span></div><div class="notice">This event's CUT window has closed because Round 3 has started.</div></div>`;
+      }else if(cutWindowOpen){
+        cutBox=`<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">Open now · closes ${esc(deadlineLabel)}</span></div><div class="cutbox"><div class="cutrow"><select id="cutSelect" class="select"><option value="">Select player to cut</option>${picks.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select><button class="ghost" id="cutBtn">Use CUT</button></div><small>The selected golfer will score 0 for this event.</small></div></div>`;
+      }else if(deadlinePassed){
+        cutBox=`<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">Still available this season</span></div><div class="notice">This event's CUT window closed at ${esc(deadlineLabel)}.</div></div>`;
       }else{
-        cutBox=cutWindowOpen
-          ? `<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">Open now · closes when Round 3 starts</span></div><div class="cutbox"><div class="cutrow"><select id="cutSelect" class="select"><option value="">Select player to cut</option>${picks.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select><button class="ghost" id="cutBtn">Use CUT</button></div><small>The selected golfer will score 0 for this event.</small></div></div>`
-          : `<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">${cutRoundTwoDone?'Waiting for Round 3':'Opens after Round 2'}</span></div><div class="notice">CUT becomes available only after Round 2 is complete and locks automatically when Round 3 begins.</div></div>`;
+        cutBox=`<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">${decisionRoundComplete?'Opens shortly':'Opens after Round '+cutDecisionRound}</span></div><div class="notice">CUT opens after Round ${cutDecisionRound} is complete and closes at ${esc(deadlineLabel)}.</div></div>`;
       }
     }else if(cutUsedElsewhere){
       cutBox=`<div class="card pad" style="margin-bottom:14px"><div class="titlebar"><h3>CUT chip</h3><span class="label">Used this season</span></div></div>`;
     }
     return `${cutBox}<div id="liveReveal">${liveMarkup()}</div>`;
   };
+
   function paintLive(){const box=document.getElementById('liveReveal');if(box)box.innerHTML=liveMarkup()}
-  function scheduleRetry(eventId){
-    clearTimeout(retryTimer);
-    retryTimer=setTimeout(()=>{
-      if(S.event===eventId&&revealedNow(ev())&&!ev()?.complete&&!hasLiveData())loadLive(true);
-    },2500);
-  }
+  function scheduleRetry(eventId){clearTimeout(retryTimer);retryTimer=setTimeout(()=>{if(S.event===eventId&&revealedNow(ev())&&!ev()?.complete&&!hasLiveData())loadLive(true)},2500)}
   async function loadLive(force=false){
-    const requestedEvent=S.event;
-    const requestedEv=EVENTS.find(x=>x.id===requestedEvent);
+    const requestedEvent=S.event,requestedEv=EVENTS.find(x=>x.id===requestedEvent);
     if(!requestedEv||!revealedNow(requestedEv)||requestedEv.complete)return;
     if(!force&&S.liveLeaderboard.loading&&S.liveLeaderboard.eventId===requestedEvent)return;
-
     const requestSeq=++liveRequestSeq;
-    if(S.liveLeaderboard.eventId!==requestedEvent){
-      S.liveLeaderboard={eventId:requestedEvent,players:[],updatedAt:null,loading:true,error:null,sourceVerified:false,playStarted:false};
-    }else{
-      S.liveLeaderboard.loading=true;
-      S.liveLeaderboard.error=null;
-    }
+    if(S.liveLeaderboard.eventId!==requestedEvent)S.liveLeaderboard={eventId:requestedEvent,players:[],updatedAt:null,loading:true,error:null,sourceVerified:false,playStarted:false};
+    else{S.liveLeaderboard.loading=true;S.liveLeaderboard.error=null}
     paintLive();
-
     try{
-      const r=await fetch(`${cfg.supabaseUrl}/functions/v1/${LIVE_FN}?event=${encodeURIComponent(requestedEvent)}&_=${Date.now()}`,{
-        cache:'no-store',
-        headers:{apikey:cfg.supabaseAnonKey,'cache-control':'no-cache','pragma':'no-cache'}
-      });
+      const r=await fetch(`${cfg.supabaseUrl}/functions/v1/${LIVE_FN}?event=${encodeURIComponent(requestedEvent)}&_=${Date.now()}`,{cache:'no-store',headers:{apikey:cfg.supabaseAnonKey,'cache-control':'no-cache','pragma':'no-cache'}});
       if(!r.ok)throw new Error(`Live feed ${r.status}`);
       const data=await r.json();
-
-      // Never allow an older in-flight request to overwrite the current event.
       if(requestSeq!==liveRequestSeq||S.event!==requestedEvent)return;
-
       const incoming=Array.isArray(data.players)?data.players:[];
+      const shared={
+        eventId:requestedEvent,updatedAt:data.updatedAt||new Date().toISOString(),round:data.round||null,eventName:data.eventName||null,
+        cutChipOpen:data.cutChipOpen===true,cutDecisionRound:Number(data.cutDecisionRound||1),cutDeadline:data.cutDeadline||null,
+        roundOneComplete:data.roundOneComplete===true,roundTwoComplete:data.roundTwoComplete===true,roundThreeStarted:data.roundThreeStarted===true,
+        loading:false,error:data.error||null
+      };
       if(data.eventId===requestedEvent&&data.sourceVerified===true&&data.playStarted===true&&incoming.length){
-        S.liveLeaderboard={
-          eventId:requestedEvent,players:incoming,updatedAt:data.updatedAt||new Date().toISOString(),
-          round:data.round||null,eventName:data.eventName||null,sourceVerified:true,playStarted:true,
-          projectedCutScore:data.projectedCutScore,projectedCut:data.projectedCut||null,
-          projectedCutMethod:data.projectedCutMethod||null,cutFinal:data.cutFinal===true,
-          eventComplete:data.eventComplete===true,cutChipOpen:data.cutChipOpen===true,
-          roundTwoComplete:data.roundTwoComplete===true,roundThreeStarted:data.roundThreeStarted===true,
-          loading:false,error:data.error||null
-        };
+        S.liveLeaderboard={...shared,players:incoming,sourceVerified:true,playStarted:true,projectedCutScore:data.projectedCutScore,projectedCut:data.projectedCut||null,projectedCutMethod:data.projectedCutMethod||null,cutFinal:data.cutFinal===true,eventComplete:data.eventComplete===true};
         clearTimeout(retryTimer);
       }else{
-        S.liveLeaderboard={
-          eventId:requestedEvent,players:[],updatedAt:data.updatedAt||new Date().toISOString(),
-          round:data.round||null,eventName:data.eventName||null,sourceVerified:false,playStarted:false,
-          projectedCutScore:null,projectedCut:null,projectedCutMethod:null,cutFinal:false,
-          eventComplete:false,cutChipOpen:false,roundTwoComplete:data.roundTwoComplete===true,
-          roundThreeStarted:data.roundThreeStarted===true,loading:false,error:data.error||null
-        };
+        S.liveLeaderboard={...shared,players:[],sourceVerified:false,playStarted:false,projectedCutScore:null,projectedCut:null,projectedCutMethod:null,cutFinal:false,eventComplete:false};
         scheduleRetry(requestedEvent);
       }
     }catch(e){
       if(requestSeq!==liveRequestSeq||S.event!==requestedEvent)return;
-      S.liveLeaderboard.loading=false;
-      S.liveLeaderboard.error=String(e?.message||e||'unavailable');
-      scheduleRetry(requestedEvent);
+      S.liveLeaderboard.loading=false;S.liveLeaderboard.error=String(e?.message||e||'unavailable');scheduleRetry(requestedEvent);
     }
-    if(requestSeq===liveRequestSeq&&S.event===requestedEvent)paintLive();
+    if(requestSeq===liveRequestSeq&&S.event===requestedEvent)render();
   }
   window.refreshLiveNow=()=>loadLive(true);
   setInterval(()=>{if(revealedNow(ev())&&!ev()?.complete)loadLive()},LIVE_REFRESH_MS);
-  try{for(const e of EVENTS)localStorage.removeItem('euro_live_'+e.id)}catch(_e){}S.liveLeaderboard={eventId:S.event,players:[],updatedAt:null,loading:false,error:null,sourceVerified:false,playStarted:false};render();loadLive(true)
+  try{for(const e of EVENTS)localStorage.removeItem('euro_live_'+e.id)}catch(_e){}
+  S.liveLeaderboard={eventId:S.event,players:[],updatedAt:null,loading:false,error:null,sourceVerified:false,playStarted:false};
+  render();loadLive(true);
 })();
