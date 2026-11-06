@@ -10,8 +10,7 @@
     const pos=Number(r.finish_position);
     if(S.event==='abu-dhabi'){
       if(Number.isFinite(pos)&&pos>40)return -3;
-      if(!r.made_cut)return -3;
-      if(!Number.isFinite(pos)||pos<=0)return null;
+      if(!Number.isFinite(pos)||pos<=0)return r.made_cut?null:-3;
     } else if(!r.made_cut)return -3;
     if(!Number.isFinite(pos)||pos<=0)return 1;
     if(pos===1)return 30;
