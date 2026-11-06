@@ -7,8 +7,12 @@
 
   function baseFinalPoints(r){
     if(!r)return null;
-    if(!r.made_cut)return -3;
     const pos=Number(r.finish_position);
+    if(S.event==='abu-dhabi'){
+      if(Number.isFinite(pos)&&pos>40)return -3;
+      if(!r.made_cut)return -3;
+      if(!Number.isFinite(pos)||pos<=0)return null;
+    } else if(!r.made_cut)return -3;
     if(!Number.isFinite(pos)||pos<=0)return 1;
     if(pos===1)return 30;
     if(pos===2)return 20;
@@ -21,6 +25,10 @@
 
   function finishLabel(r){
     if(!r)return '—';
+    if(S.event==='abu-dhabi'){
+      const pos=Number(r.finish_position);
+      return Number.isFinite(pos)&&pos>0?String(pos):'WD';
+    }
     if(!r.made_cut)return Number.isFinite(Number(r.finish_position))?'MC':'MC/WD';
     const pos=Number(r.finish_position);
     return Number.isFinite(pos)&&pos>0?String(pos):'Made cut';
